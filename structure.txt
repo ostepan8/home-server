@@ -1,0 +1,23 @@
+home-api/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                 # FastAPI app initialization
+│   ├── config.py               # Configuration settings
+│   ├── api/                    # API endpoints
+│   │   ├── __init__.py
+│   │   ├── devices.py          # Generic device endpoints
+│   │   ├── lights.py           # Light-specific endpoints
+│   │   └── tv.py               # TV-specific endpoints
+│   ├── devices/                # Device controllers
+│   │   ├── __init__.py
+│   │   ├── registry.py         # Device registry
+│   │   ├── lights.py           # Light control
+│   │   └── tv.py               # TV control
+│   └── models/                 # Data models (simple JSON-based)
+│       ├── __init__.py
+│       └── device.py           # Device model
+├── data/                       # Local data storage
+│   └── devices.json            # Device configuration
+├── .env.example                # Example environment variables
+├── requirements.txt            # Dependencies
+└── README.md                   # Documentation
