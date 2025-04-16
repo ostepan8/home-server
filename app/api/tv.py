@@ -112,6 +112,7 @@ async def volume_up(tv_id: str):
     return await tv.volume_up()
 
 
+@router.post("/{tv_id}/volume_down")  # Add this decorator
 async def volume_down(tv_id: str):
     """Decrease TV volume"""
     tv = registry.get_device(tv_id)
