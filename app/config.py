@@ -2,7 +2,7 @@
 import os
 from dotenv import load_dotenv
 from typing import List, Optional
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings  # Change this import
 
 # Load environment variables
 load_dotenv()
