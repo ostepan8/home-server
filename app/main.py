@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
 import json
-from app.api import devices, lights, tv
+from app.api import devices, lights, tv, ui
 from app.devices.registry import DeviceRegistry
 from app.config import settings
 
@@ -43,6 +43,7 @@ async def shutdown_event():
 app.include_router(devices.router, prefix="/devices", tags=["devices"])
 app.include_router(lights.router, prefix="/lights", tags=["lights"])
 app.include_router(tv.router, prefix="/tv", tags=["tv"])
+app.include_router(ui.router, prefix="/dashboard", tags=["ui"])
 
 
 @app.get("/")
