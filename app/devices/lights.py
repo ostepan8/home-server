@@ -1,21 +1,44 @@
 # app/devices/lights.py
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 from yeelight import Bulb
 import asyncio
+import time
 
 
 class YeelightController:
     """Controller for Yeelight bulbs"""
 
-    def __init__(self, ip_address: str, name: str = "", room: str = ""):
-        self.ip_address = ip_address
+    def __init__(self, ip_address: Union[str, Dict], name: str = "", room: str = ""):
+        # Handle both string and dictionary IP address formats
+        if isinstance(ip_address, dict) and "ip" in ip_address:
+            self.ip_address = ip_address["ip"]
+            # If room is not provided but is in the IP address dictionary, use that
+            if not room and "room" in ip_address:
+                room = ip_address["room"]
+        else:
+            self.ip_address = ip_address
+
         self.name = name
         self.room = room
         self.type = "light"
-        self.bulb = Bulb(ip_address)
+        self.bulb = Bulb(
+            self.ip_address, effect="smooth", duration=300
+        )  # Smoother transitions
+        self.last_command_time = 0
+        self.min_command_interval = 0.5  # Minimum time between commands in seconds
+
+    async def _rate_limit(self):
+        """Ensure we don't flood the device with commands"""
+        current_time = time.time()
+        time_since_last = current_time - self.last_command_time
+        if time_since_last < self.min_command_interval:
+            await asyncio.sleep(self.min_command_interval - time_since_last)
+        self.last_command_time = time.time()
 
     async def get_status(self) -> Dict[str, Any]:
         """Get the current status of the light"""
+        await self._rate_limit()
+
         try:
             # Run in a separate thread since Yeelight lib is blocking
             loop = asyncio.get_running_loop()
@@ -43,6 +66,7 @@ class YeelightController:
 
     async def set_state(self, **kwargs) -> Dict[str, Any]:
         """Update the state of the light"""
+        await self._rate_limit()
         loop = asyncio.get_running_loop()
 
         try:
@@ -68,6 +92,9 @@ class YeelightController:
             if "rgb" in kwargs and kwargs.get("power") != False:
                 r, g, b = kwargs["rgb"]
                 await loop.run_in_executor(None, lambda: self.bulb.set_rgb(r, g, b))
+
+            # Add a small delay after commands to avoid flooding the network
+            await asyncio.sleep(0.2)
 
             return await self.get_status()
         except Exception as e:

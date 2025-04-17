@@ -44,6 +44,7 @@ class DeviceRegistry:
 
         # Initialize devices from environment variables if none were loaded
         if not self.devices:
+            print("Discovering devices")
             await self.discover_devices()
 
         self.initialized = True
@@ -78,20 +79,28 @@ class DeviceRegistry:
     async def discover_devices(self):
         """Discover devices from configuration"""
         # Add Yeelight devices
-        for idx, ip in enumerate(settings.YEELIGHT_IP_ADDRESSES):
+        for idx, light_info in enumerate(settings.YEELIGHT_IP_ADDRESSES):
             try:
-                device_id = f"light_{idx+1}"
+                # Create a unique ID for each light based on room and position
+                room_name = light_info["room"]
+                device_id = f"light_{idx+1}"  # Keep consistent IDs for now
+
                 await self.create_device_controller(
                     device_id,
                     "light",
                     {
-                        "ip_address": ip,
-                        "name": f"Light {idx+1}",
-                        "room": "Unknown",  # Default room
+                        "ip_address": light_info["ip"],
+                        "name": room_name,  # Use the room name as the light name
+                        "room": room_name,  # Set the correct room
                     },
                 )
+                logger.info(f"Added light controller for {device_id} in {room_name}")
+
+                # Add a small delay between device initializations
+                await asyncio.sleep(0.5)
+
             except Exception as e:
-                logger.error(f"Error adding Yeelight at {ip}: {e}")
+                logger.error(f"Error adding Yeelight at {light_info['ip']}: {e}")
 
         # Add Roku TV
         if settings.ROKU_IP_ADDRESS:
@@ -102,8 +111,10 @@ class DeviceRegistry:
                     {
                         "ip_address": settings.ROKU_IP_ADDRESS,
                         "name": "Main TV",
+                        "room": "Living Room",
                     },
                 )
+                logger.info(f"Added TV controller using IP {settings.ROKU_IP_ADDRESS}")
             except Exception as e:
                 logger.error(f"Error adding Roku TV: {e}")
 

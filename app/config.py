@@ -29,8 +29,18 @@ class Settings(BaseSettings):
 
         # Load Yeelight IP addresses from environment variables
         for key, value in os.environ.items():
-            if key.startswith("YEELIGHT_") and key.endswith("_IP_ADDRESS") and value:
-                self.YEELIGHT_IP_ADDRESSES.append(value)
+            if "YEELIGHT" in key and key.endswith("_IP_ADDRESS") and value:
+                print(key, "KEY")
+                print(value, "VALUE")
+                parts = key.split("_")
+                # Extract room information
+                room_name = " ".join(
+                    [part.capitalize() for part in parts[:-3]]
+                )  # Excluding _YEELIGHT_IP_ADDRESS
+                self.YEELIGHT_IP_ADDRESSES.append(
+                    {"ip": value, "room": room_name if room_name else "Unknown"}
+                )
+                print(self.YEELIGHT_IP_ADDRESSES, "YEELIGHT_IP_ADDRESSES")
 
 
 # Create settings instance
