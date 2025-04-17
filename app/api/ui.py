@@ -46,6 +46,7 @@ async def dashboard(request: Request):
                 --dark-color: #2c3e50;
                 --light-color: #ecf0f1;
                 --danger-color: #e74c3c;
+                --success-color: #27ae60;
             }
             body {
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -65,6 +66,9 @@ async def dashboard(request: Request):
                 padding: 20px 0;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.1);
                 margin-bottom: 30px;
+                position: sticky;
+                top: 0;
+                z-index: 100;
             }
             .header h1 {
                 margin: 0;
@@ -157,6 +161,11 @@ async def dashboard(request: Request):
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                transition: transform 0.1s, background-color 0.2s;
+            }
+            .remote-button:active {
+                transform: scale(0.95);
+                background-color: #e9ecef;
             }
             .tv-app-section {
                 margin-top: 20px;
@@ -207,8 +216,15 @@ async def dashboard(request: Request):
             }
             .loading {
                 display: none;
-                text-align: center;
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(255, 255, 255, 0.9);
                 padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+                z-index: 1000;
             }
             .loading-spinner {
                 width: 40px;
@@ -255,6 +271,24 @@ async def dashboard(request: Request):
                 color: white;
                 border-color: var(--primary-color);
             }
+            .status-message {
+                display: none;
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                padding: 10px 20px;
+                border-radius: 5px;
+                color: white;
+                font-weight: 500;
+                z-index: 1000;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            }
+            .status-message.success {
+                background-color: var(--success-color);
+            }
+            .status-message.error {
+                background-color: var(--danger-color);
+            }
             @media (max-width: 768px) {
                 .control-panel, .tv-remote {
                     grid-template-columns: repeat(3, 1fr);
@@ -273,6 +307,8 @@ async def dashboard(request: Request):
                 <div class="loading-spinner"></div>
                 <p>Processing command...</p>
             </div>
+            
+            <div class="status-message" id="status-message"></div>
     """
 
     # Add each room
@@ -306,7 +342,7 @@ async def dashboard(request: Request):
             <div class="device-item">
                 <div class="device-name">
                     <i class="bi {icon_class}"></i> {device_name}
-                    <span class="device-status {('status-on' if power else 'status-off')}">{power_text}</span>
+                    <span id="{device_id}-status" class="device-status {('status-on' if power else 'status-off')}">{power_text}</span>
                 </div>
             """
 
@@ -351,10 +387,20 @@ async def dashboard(request: Request):
                             <button class="btn btn-danger" onclick="controlDevice('{device_id}', 'tv', 'turn_off')">
                                 <i class="bi bi-power"></i> Turn Off
                             </button>
-                            <button class="btn btn-secondary" onclick="controlDevice('{device_id}', 'tv', 'volume_up')">
+                            <button class="btn btn-secondary" 
+                                onmousedown="startVolumeControl('{device_id}', 'up')" 
+                                onmouseup="stopVolumeControl()" 
+                                ontouchstart="startVolumeControl('{device_id}', 'up')" 
+                                ontouchend="stopVolumeControl()"
+                                onmouseleave="stopVolumeControl()">
                                 <i class="bi bi-volume-up"></i> Volume +
                             </button>
-                            <button class="btn btn-secondary" onclick="controlDevice('{device_id}', 'tv', 'volume_down')">
+                            <button class="btn btn-secondary" 
+                                onmousedown="startVolumeControl('{device_id}', 'down')" 
+                                onmouseup="stopVolumeControl()" 
+                                ontouchstart="startVolumeControl('{device_id}', 'down')" 
+                                ontouchend="stopVolumeControl()"
+                                onmouseleave="stopVolumeControl()">
                                 <i class="bi bi-volume-down"></i> Volume -
                             </button>
                         </div>
@@ -454,6 +500,41 @@ async def dashboard(request: Request):
         </div>
         
         <script>
+            // Variable to store volume control interval
+            let volumeInterval = null;
+            
+            // Function to start continuous volume control
+            function startVolumeControl(deviceId, direction) {
+                // First immediate press
+                controlDevice(deviceId, 'tv', direction === 'up' ? 'volume_up' : 'volume_down');
+                
+                // Then continuous presses while button is held
+                volumeInterval = setInterval(() => {
+                    controlDevice(deviceId, 'tv', direction === 'up' ? 'volume_up' : 'volume_down');
+                }, 300); // Adjust timing as needed
+            }
+            
+            // Function to stop continuous volume control
+            function stopVolumeControl() {
+                if (volumeInterval) {
+                    clearInterval(volumeInterval);
+                    volumeInterval = null;
+                }
+            }
+            
+            // Show status message
+            function showStatusMessage(message, success = true) {
+                const statusEl = document.getElementById('status-message');
+                statusEl.textContent = message;
+                statusEl.className = success ? 'status-message success' : 'status-message error';
+                statusEl.style.display = 'block';
+                
+                // Hide after 3 seconds
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 3000);
+            }
+            
             async function controlDevice(deviceId, deviceType, action, params = {}) {
                 showLoading(true);
                 let url = '';
@@ -493,15 +574,39 @@ async def dashboard(request: Request):
                     const response = await fetch(url, { method });
                     const result = await response.json();
                     console.log(result);
-                    // Reload the page to show updated status
-                    setTimeout(() => {
-                        showLoading(false);
-                        location.reload();
-                    }, 1000);
+                    
+                    // Don't reload the page, just update UI elements as needed
+                    showLoading(false);
+                    
+                    // Update status message
+                    if (result.status === 'success') {
+                        let actionMessage = action.replace('_', ' ');
+                        showStatusMessage(`${actionMessage} successful`, true);
+                        
+                        // Only update status for power-related actions without reloading
+                        if (action === 'turn_on' || action === 'turn_off') {
+                            const statusBadge = document.querySelector(`#${deviceId}-status`);
+                            if (statusBadge) {
+                                if (action === 'turn_on') {
+                                    statusBadge.textContent = 'On';
+                                    statusBadge.classList.remove('status-off');
+                                    statusBadge.classList.add('status-on');
+                                } else {
+                                    statusBadge.textContent = 'Off';
+                                    statusBadge.classList.remove('status-on');
+                                    statusBadge.classList.add('status-off');
+                                }
+                            }
+                        }
+                    } else if (result.error) {
+                        showStatusMessage(`Error: ${result.error}`, false);
+                    }
+                    
+                    return result;
                 } catch (error) {
                     console.error('Error:', error);
                     showLoading(false);
-                    alert('An error occurred. Please try again.');
+                    showStatusMessage('Connection error. Please try again.', false);
                 }
             }
             
@@ -524,10 +629,11 @@ async def dashboard(request: Request):
                     });
                     
                     showLoading(false);
+                    showStatusMessage('Apps loaded successfully', true);
                 } catch (error) {
                     console.error('Error loading apps:', error);
                     showLoading(false);
-                    alert('Error loading apps. Please try again.');
+                    showStatusMessage('Error loading apps. Please try again.', false);
                 }
             }
             

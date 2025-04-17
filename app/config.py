@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     # Roku
     ROKU_IP_ADDRESS: Optional[str] = os.getenv("ROKU_IP_ADDRESS")
+    print(ROKU_IP_ADDRESS, "ROKU_IP_ADDRESS")
 
     # Yeelight light bulbs
     YEELIGHT_IP_ADDRESSES: List[str] = []

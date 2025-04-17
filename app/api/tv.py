@@ -2,6 +2,7 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import Dict, List, Any, Optional
 from app.devices.registry import DeviceRegistry
+import os
 
 router = APIRouter()
 registry = DeviceRegistry()
@@ -107,6 +108,9 @@ async def volume_up(
 ):
     """Increase TV volume"""
     tv = registry.get_device(tv_id)
+    print(tv, "TV")
+    print(tv.type, "TV TYPE")
+    print(os.getenv("ROKU_IP_ADDRESS"), "ROKU_IP_ADDRESS")
 
     if not tv or not hasattr(tv, "type") or tv.type != "tv":
         raise HTTPException(status_code=404, detail="TV not found")
